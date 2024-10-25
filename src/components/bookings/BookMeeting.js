@@ -114,7 +114,7 @@ const BookMeeting = () => {
   };
 
   return (
-    <div>
+    <div className="min-h-screen overflow-hidden">
       <Navbar />
       <div className="min-h-screen flex flex-col justify-center items-center bg-gray-100 relative">
         <h1 className="text-3xl font-bold mb-8 text-blue-700">Book a Meeting Room</h1>
@@ -164,11 +164,11 @@ const BookMeeting = () => {
           <div className="flex justify-between space-x-6">
             {proximityAndCapacityRooms.length > 0 && (
               <div className="w-1/2 bg-white shadow-md rounded-lg p-4 mb-4">
-                <h2 className="text-lg font-bold">Proximity & Capacity</h2>
+                <h2 className="text-lg font-bold">Proximity</h2>
                 {proximityAndCapacityRooms.map((room) => (
                   <div key={room.RoomNo} className="p-2 mb-2 border-b">
-                    <p>Room Number: {room.RoomNo}</p>
                     <p>Floor: {room.FloorNo}</p>
+                    <p>Room Number: {room.RoomNo}</p>
                     <p>Capacity: {room.RoomCapacity}</p>
                     <button
                       onClick={() => confirmBooking(room)}
@@ -182,11 +182,11 @@ const BookMeeting = () => {
 
             {capacityOnlyRooms.length > 0 && (
               <div className="w-1/2 bg-white shadow-md rounded-lg p-4 mb-4">
-                <h2 className="text-lg font-bold">Capacity Only</h2>
+                <h2 className="text-lg font-bold">Capacity</h2>
                 {capacityOnlyRooms.map((room) => (
                   <div key={room.RoomNo} className="p-2 mb-2 border-b">
-                    <p>Room Number: {room.RoomNo}</p>
                     <p>Floor: {room.FloorNo}</p>
+                    <p>Room Number: {room.RoomNo}</p>
                     <p>Capacity: {room.RoomCapacity}</p>
                     <button
                       onClick={() => confirmBooking(room)}

@@ -161,7 +161,7 @@ const RoomList = () => {
   }
 
   return (
-    <div>
+    <div className="min-h-screen overflow-hidden">
       <Navbar />
       <div className="min-h-screen flex flex-col justify-start items-center bg-gray-100 relative p-4">
         <h1 className="text-3xl font-bold mb-8 text-blue-600">Room List</h1>

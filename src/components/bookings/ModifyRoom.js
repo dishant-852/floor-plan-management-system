@@ -102,7 +102,7 @@ const ModifyRoom = () => {
   };
 
   return (
-    <div>
+    <div className="min-h-screen overflow-hidden">
       <Navbar />
       <div className="min-h-screen flex flex-col justify-center items-center bg-gray-100 relative">
         <h1 className="text-3xl font-bold mb-8 text-blue-700">Modify Room</h1>
