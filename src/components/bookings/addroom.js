@@ -14,8 +14,6 @@ function Addroom() {
   const [error, setError] = useState(""); // State for validation errors
 
   useEffect(() => {
-    // Log initial load and sync offline data if online
-    console.log("App loaded. Checking online status and syncing if necessary.");
     if (navigator.onLine) {
       console.log("Online on load, syncing offline data if available.");
       syncOfflineData();
@@ -76,9 +74,7 @@ function Addroom() {
       console.log("Online: Saving room data to Firebase.");
       saveToFirebase(roomData);
     } else {
-      //console.log("Offline: Saving room data locally.");
       saveToLocalStorage(roomData);
-      // console.log(roomData)
     }
   };
 
@@ -96,13 +92,28 @@ function Addroom() {
     }
   };
 
+ 
   const saveToLocalStorage = (roomData) => {
     const offlineData = JSON.parse(localStorage.getItem("offlineRoomData")) || [];
+    
+    // Check if the room already exists in offline storage
+    const roomExists = offlineData.some(
+      (room) => room.RoomNo === roomData.RoomNo && room.FloorNo === roomData.FloorNo
+    );
+  
+    if (roomExists) {
+      console.log("Room already exists in local storage:", roomData);
+      showSuccessMessage("Room already saved locally and will sync when online.");
+      return;
+    }
+  
+    // Add room data if it does not exist
     offlineData.push(roomData);
     localStorage.setItem("offlineRoomData", JSON.stringify(offlineData));
     console.log("Room data saved to local storage:", roomData);
     showSuccessMessage("Room saved locally. It will sync when online.");
   };
+  
 
   const syncOfflineData = async () => {
     const offlineData = JSON.parse(localStorage.getItem("offlineRoomData"));

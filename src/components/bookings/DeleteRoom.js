@@ -76,6 +76,8 @@ const DeleteRoom = () => {
       .then(() => {
         console.log("Room data removed from Firebase:", roomKey);
         showSuccessMessage("Room removed successfully!");
+        setFloorNo("");
+        setRoomNumber("");
       })
       .catch((error) => {
         setError(`Error: ${error.message}`);
@@ -88,6 +90,8 @@ const DeleteRoom = () => {
     localStorage.setItem("offlineRoomDeletions", JSON.stringify(offlineDeletions));
     console.log("Room deletion saved to local storage:", roomData);
     showSuccessMessage("Room deletion saved locally. It will sync when online.");
+    setFloorNo("");
+    setRoomNumber("");
   };
 
   const syncOfflineData = async () => {

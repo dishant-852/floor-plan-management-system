@@ -55,11 +55,10 @@ const RoomList = () => {
   }
 
   return (
-    <div className="min-h-screen 
-    ">
+    <div className="min-h-screen ">
       <Navbar />
       <div className="min-h-screen flex flex-col justify-start items-center bg-gray-100 relative p-4">
-        <h1 className="text-3xl font-bold mb-8 text-blue-600">Room List</h1>
+        <h1 className="text-3xl font-bold mb-8 text-blue-600">All Rooms</h1>
 
         {/* Refresh Button */}
         <div className="mb-4 flex justify-between items-center w-full max-w-4xl">

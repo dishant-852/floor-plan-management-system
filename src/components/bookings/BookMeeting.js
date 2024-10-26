@@ -63,21 +63,26 @@ const BookMeeting = () => {
     }
   };
 
+
   const confirmBooking = async (room) => {
     if (navigator.onLine) {
       await completeBooking(room);
     } else {
       saveToLocalStorage(room);
     }
+  
+    // Clear suggestions after booking to prevent multiple bookings
+    setProximityAndCapacityRooms([]);
+    setCapacityOnlyRooms([]);
   };
-
+  
   const completeBooking = async (room) => {
     try {
       const db = getDatabase(app);
       const roomsRef = ref(db, 'FMS/Rooms');
       const roomNoQuery = query(roomsRef, orderByChild('RoomNo'), equalTo(room.RoomNo));
       const snapshot = await get(roomNoQuery);
-
+  
       if (snapshot.exists()) {
         const rooms = snapshot.val();
         let roomKey = null;
@@ -86,11 +91,11 @@ const BookMeeting = () => {
             roomKey = key;
           }
         });
-
+  
         if (roomKey) {
           const roomRef = ref(db, `FMS/Rooms/${roomKey}`);
           await update(roomRef, { isOccupied: true });
-
+  
           const meetRecordRef = ref(db, 'FMS/MeetRecord');
           await push(meetRecordRef, {
             userId,
@@ -100,10 +105,11 @@ const BookMeeting = () => {
             capacity: room.RoomCapacity,
             bookedAt: new Date().toISOString()
           });
-
+  
           console.log("Room booked in Firebase:", room.RoomNo);
           showSuccessMessage("Room booked successfully!");
-
+  
+          // Reset input fields and clear room suggestions after booking
           setSeatCount("");
           setUserId("");
           setUserName("");
@@ -120,6 +126,7 @@ const BookMeeting = () => {
       setError("Failed to book the room. Please try again.");
     }
   };
+  
 
   const saveToLocalStorage = (room) => {
     const offlineBookings = JSON.parse(localStorage.getItem("offlineBookings")) || [];
@@ -187,7 +194,7 @@ const BookMeeting = () => {
           <div className="mb-4">
             <input
               type="number"
-              placeholder="Number of Seats"
+              placeholder="Number of Required Seats"
               value={seatCount}
               onChange={(e) => setSeatCount(e.target.value)}
               className="w-full px-3 py-2 border rounded-lg shadow-sm focus:outline-none focus:border-blue-500"
