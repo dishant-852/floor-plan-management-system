@@ -1,10 +1,12 @@
-# Floor Management System
+# Floor Plan Management System
 
-## Live Demo
-[Click here to try the live app](https://floor-plan-management-system.firebaseapp.com/)  
-[Watch the demo video](https://drive.google.com/file/d/1WkDtyM2dQQt18k_3MPL2VVvoRXnS-mkO/view?usp=sharing)
+## Related Links
+[Live Site](https://floor-plan-management-system.firebaseapp.com/)  
+
+[Demo video](https://drive.google.com/file/d/1WkDtyM2dQQt18k_3MPL2VVvoRXnS-mkO/view?usp=sharing)  
 
 [Documentation](https://drive.google.com/file/d/1CcMBXurFR5bczQUB7vh_nt_Wqrh21eFC/view?usp=drive_link)
+
 
 ## Overview
 The **Floor Management System** is a web-based application designed to streamline the management of rooms and meeting spaces within an office or organization. The system allows administrators to manage room capacities, availability, and floor plans, while users can easily book rooms based on real-time availability and capacity.
@@ -14,13 +16,17 @@ The **Floor Management System** is a web-based application designed to streamlin
 - **Room Suggestions**: The system recommends the best-fit rooms based on capacity and proximity to ensure optimal use of space.
 - **Dynamic Updates**: As bookings occur, room availability is updated dynamically to provide accurate suggestions.
 - **Preferred Rooms**: Meeting rooms are prioritized based on previous bookings and preferences.
-- **Admin Management**: Admins can add, modify, or delete rooms and floor plans, making it easy to manage meeting spaces.
+- **Admin Management**: Admins can view all rooms,add, modify, or delete rooms and free a occupied room, making it easy to manage meeting spaces.
+- **Local Storage Mechanism**: Admins can update the floor plans(add, modify, or delete rooms) even in scenarios of
+internet connectivity loss.
+- **Online Synchronization**: Updated the server when the internet or server connection is
+re-established.
 
 ## Tech Stack
 - **Frontend**: React, Tailwind CSS
 - **Backend**: Firebase (for data storage and authentication)
 - **Database**: Firebase Realtime Database
-- **Deployment**: [Firebase]
+- **Deployment**: Firebase
 
 
 
@@ -43,20 +49,17 @@ The **Floor Management System** is a web-based application designed to streamlin
 
 4. Start the development server:
     ```bash 
-    npm start
+    npm run start
 
 5. Access the app locally at http://localhost:3000.
 
 6. Usage
 - Add new rooms, update existing rooms, or delete rooms based on floor number and capacity.
 - Log in and book a room by specifying the number of participants.The system will suggest the best rooms based on capacity and proximity.
-Confirm the booking and view room details.
+Confirm the booking and view room details and meeting records.
 
-7. Future Enhancements
-- Develop a local storage mechanism for admins to make changes offline
-- Implement synchronization to update the server when the internet or server connection is re-established.
 
-8. Contributing:
+7. Contributing:
 
 - Fork the repository.
 - Create a new branch (git checkout -b feature/your-feature).
@@ -64,5 +67,5 @@ Confirm the booking and view room details.
 - Push to the branch (git push origin feature/your-feature).
 
 
-9. Contact
+8. Contact
 -For any questions or suggestions, feel free to reach out at dishantgupta852@gmail.com.
