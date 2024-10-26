@@ -4,14 +4,14 @@ import { getDatabase, ref, get, query, orderByChild, update, equalTo, push } fro
 import Navbar from '../home/Navbar';
 
 const BookMeeting = () => {
-  const [userId, setUserId] = useState(""); // User ID input
-  const [userName, setUserName] = useState(""); // User Name input
-  const [seatCount, setSeatCount] = useState(""); // Number of seats requested by user
-  const [rooms, setRooms] = useState([]); // All available rooms
-  const [proximityAndCapacityRooms, setProximityAndCapacityRooms] = useState([]); // Best-fit rooms based on proximity and capacity
-  const [capacityOnlyRooms, setCapacityOnlyRooms] = useState([]); // Best-fit rooms based only on capacity
-  const [error, setError] = useState(""); // Validation error
-  const [showAlert, setShowAlert] = useState(false); // Success alert
+  const [userId, setUserId] = useState("");
+  const [userName, setUserName] = useState("");
+  const [seatCount, setSeatCount] = useState("");
+  const [rooms, setRooms] = useState([]);
+  const [proximityAndCapacityRooms, setProximityAndCapacityRooms] = useState([]);
+  const [capacityOnlyRooms, setCapacityOnlyRooms] = useState([]);
+  const [error, setError] = useState("");
+  const [showAlert, setShowAlert] = useState(false);
 
   useEffect(() => {
     const fetchRooms = async () => {
@@ -27,6 +27,11 @@ const BookMeeting = () => {
     };
 
     fetchRooms();
+
+    if (navigator.onLine) syncOfflineData();
+
+    window.addEventListener("online", syncOfflineData);
+    return () => window.removeEventListener("online", syncOfflineData);
   }, []);
 
   const suggestRooms = () => {
@@ -45,11 +50,7 @@ const BookMeeting = () => {
       setCapacityOnlyRooms([]);
     } else {
       const sortedByProximityAndCapacity = [...availableRooms].sort((a, b) => {
-        if (a.FloorNo === b.FloorNo) {
-          return a.RoomCapacity - b.RoomCapacity;
-        } else {
-          return a.FloorNo - b.FloorNo;
-        }
+        return a.FloorNo === b.FloorNo ? a.RoomCapacity - b.RoomCapacity : a.FloorNo - b.FloorNo;
       });
 
       const proximityAndCapacitySuggestions = sortedByProximityAndCapacity.slice(0, 2);
@@ -63,6 +64,14 @@ const BookMeeting = () => {
   };
 
   const confirmBooking = async (room) => {
+    if (navigator.onLine) {
+      await completeBooking(room);
+    } else {
+      saveToLocalStorage(room);
+    }
+  };
+
+  const completeBooking = async (room) => {
     try {
       const db = getDatabase(app);
       const roomsRef = ref(db, 'FMS/Rooms');
@@ -82,7 +91,6 @@ const BookMeeting = () => {
           const roomRef = ref(db, `FMS/Rooms/${roomKey}`);
           await update(roomRef, { isOccupied: true });
 
-          // Store the meeting record in `MeetRecord`
           const meetRecordRef = ref(db, 'FMS/MeetRecord');
           await push(meetRecordRef, {
             userId,
@@ -93,8 +101,8 @@ const BookMeeting = () => {
             bookedAt: new Date().toISOString()
           });
 
-          setShowAlert(true);
-          setTimeout(() => setShowAlert(false), 3000);
+          console.log("Room booked in Firebase:", room.RoomNo);
+          showSuccessMessage("Room booked successfully!");
 
           setSeatCount("");
           setUserId("");
@@ -108,9 +116,39 @@ const BookMeeting = () => {
         setError("Room with the specified RoomNo does not exist.");
       }
     } catch (error) {
+      console.error("Error booking room:", error);
       setError("Failed to book the room. Please try again.");
-      console.error("Error: ", error);
     }
+  };
+
+  const saveToLocalStorage = (room) => {
+    const offlineBookings = JSON.parse(localStorage.getItem("offlineBookings")) || [];
+    offlineBookings.push({
+      userId,
+      userName,
+      room,
+      bookedAt: new Date().toISOString()
+    });
+    localStorage.setItem("offlineBookings", JSON.stringify(offlineBookings));
+    console.log("Booking saved offline:", { userId, userName, room });
+    showSuccessMessage("Booking saved offline. It will sync when online.");
+  };
+
+  const syncOfflineData = async () => {
+    const offlineBookings = JSON.parse(localStorage.getItem("offlineBookings"));
+    if (offlineBookings && offlineBookings.length > 0) {
+      console.log("Syncing offline bookings:", offlineBookings);
+      for (const booking of offlineBookings) {
+        await completeBooking(booking.room);
+      }
+      localStorage.removeItem("offlineBookings");
+      console.log("Offline bookings synced successfully.");
+    }
+  };
+
+  const showSuccessMessage = (message) => {
+    setShowAlert(true);
+    setTimeout(() => setShowAlert(false), 3000);
   };
 
   return (
@@ -209,4 +247,3 @@ const BookMeeting = () => {
 };
 
 export default BookMeeting;
-

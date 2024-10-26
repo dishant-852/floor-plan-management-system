@@ -1,27 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { app } from "../../firebase/firebase";
 import { getDatabase, ref, set, get, query, equalTo, orderByChild } from "firebase/database";
 import Navbar from '../home/Navbar';
 
 const ModifyRoom = () => {
-  const [floorNo, setFloorNo] = useState(""); // Floor Number
-  const [inputValue1, setInputValue1] = useState(""); // Room Number
-  const [inputValue2, setInputValue2] = useState(""); // Room Capacity
-  const [error, setError] = useState(""); // Validation errors
-  const [showAlert, setShowAlert] = useState(false); // Success alert
-  const [roomExists, setRoomExists] = useState(false); // Room existence state
-  const [isOccupied, setIsOccupied] = useState(false); // Occupancy state
+  const [floorNo, setFloorNo] = useState("");
+  const [inputValue1, setInputValue1] = useState("");
+  const [inputValue2, setInputValue2] = useState("");
+  const [error, setError] = useState("");
+  const [showAlert, setShowAlert] = useState(false);
+  const [roomExists, setRoomExists] = useState(false);
+  const [isOccupied, setIsOccupied] = useState(false);
 
-  // Fetch room details based on selected floor and room number
+  useEffect(() => {
+    // Sync offline data once if online upon load
+    if (navigator.onLine) syncOfflineData();
+
+    // Sync offline data when connection goes online
+    window.addEventListener("online", syncOfflineData);
+    return () => window.removeEventListener("online", syncOfflineData);
+  }, []);
+
+  // Fetch room details based on floor and room number
   const fetchRoomDetails = async () => {
-    setError(""); // Clear any previous errors
+    setError("");
     const db = getDatabase(app);
-    
-    // Convert Room Number and Floor Number to integers for comparison
     const roomNo = parseInt(inputValue1, 10);
     const floorNumber = parseInt(floorNo, 10);
 
-    // Query to fetch the room using both Floor Number and Room Number
     const roomRef = query(ref(db, 'FMS/Rooms'), orderByChild('RoomNo'), equalTo(roomNo));
     const snapshot = await get(roomRef);
 
@@ -29,7 +35,7 @@ const ModifyRoom = () => {
       const roomData = Object.values(snapshot.val()).find(room => room.FloorNo === floorNumber);
       if (roomData) {
         setInputValue2(roomData.RoomCapacity.toString());
-        setIsOccupied(roomData.isOccupied); // Set the occupancy state
+        setIsOccupied(roomData.isOccupied);
         setRoomExists(true);
       } else {
         setError("Room does not exist on this floor.");
@@ -41,64 +47,87 @@ const ModifyRoom = () => {
     }
   };
 
+  // Update room data
   const updateRoomData = async () => {
     const roomNo = parseInt(inputValue1, 10);
     const roomCapacity = parseInt(inputValue2, 10);
     const floorNumber = parseInt(floorNo, 10);
 
-    // Validate Room Capacity
     if (isNaN(roomCapacity) || roomCapacity <= 0) {
       setError("Room Capacity must be a positive integer greater than 0.");
-      return; // Stop execution if validation fails
+      return;
     }
 
-    // Check if room is occupied before updating
     if (isOccupied) {
       setError("Cannot modify an occupied room.");
       return;
     }
 
-    // Clear error if validation passes
     setError("");
 
+    const roomData = {
+      RoomNo: roomNo,
+      RoomCapacity: roomCapacity,
+      FloorNo: floorNumber,
+      isOccupied
+    };
+
+    if (navigator.onLine) {
+      saveToFirebase(roomData);
+    } else {
+      saveToLocalStorage(roomData);
+    }
+  };
+
+  // Save data to Firebase
+  const saveToFirebase = async (roomData) => {
     const db = getDatabase(app);
-    // Query to fetch the room using both Floor Number and Room Number
-    const roomRef = query(ref(db, 'FMS/Rooms'), orderByChild('RoomNo'), equalTo(roomNo));
+    const roomRef = query(ref(db, 'FMS/Rooms'), orderByChild('RoomNo'), equalTo(roomData.RoomNo));
     const snapshot = await get(roomRef);
 
     if (snapshot.exists()) {
-      const roomData = Object.values(snapshot.val()).find(room => room.FloorNo === floorNumber);
-      if (roomData) {
-        const roomKey = Object.keys(snapshot.val()).find(key => snapshot.val()[key].FloorNo === floorNumber);
-        const roomDocRef = ref(db, `FMS/Rooms/${roomKey}`);
+      const roomKey = Object.keys(snapshot.val()).find(key => snapshot.val()[key].FloorNo === roomData.FloorNo);
+      const roomDocRef = ref(db, `FMS/Rooms/${roomKey}`);
 
-        // Save the updated room details as integers
-        set(roomDocRef, {
-          RoomNo: roomNo,             // Save RoomNo as integer
-          RoomCapacity: roomCapacity,  // Save RoomCapacity as integer
-          FloorNo: floorNumber,        // Save FloorNo as integer
-          isOccupied: roomData.isOccupied // Retain current occupation status
-        })
+      set(roomDocRef, roomData)
         .then(() => {
-          setShowAlert(true);
-          setTimeout(() => {
-            setShowAlert(false); // Hide alert after 3 seconds
-            setRoomExists(false); // Reset room existence
-            setInputValue1(""); // Clear inputs
-            setInputValue2("");
-            setFloorNo(""); // Reset floor number
-            setIsOccupied(false); // Reset occupancy state
-          }, 3000);
+          console.log("Room data updated in Firebase:", roomData);
+          showSuccessMessage("Room updated successfully!");
         })
         .catch((error) => {
           setError(`Error: ${error.message}`);
         });
-      } else {
-        setError("Room not found on this floor.");
-      }
     } else {
       setError("Room not found.");
     }
+  };
+
+  // Save data to Local Storage when offline
+  const saveToLocalStorage = (roomData) => {
+    const offlineData = JSON.parse(localStorage.getItem("offlineRoomModifications")) || [];
+    offlineData.push(roomData);
+    localStorage.setItem("offlineRoomModifications", JSON.stringify(offlineData));
+    console.log("Room data saved to local storage:", roomData);
+    showSuccessMessage("Room modification saved locally. It will sync when online.");
+  };
+
+  // Sync offline data to Firebase when online
+  const syncOfflineData = async () => {
+    const offlineData = JSON.parse(localStorage.getItem("offlineRoomModifications"));
+    if (offlineData && offlineData.length > 0) {
+      console.log("Synchronizing offline room modifications:", offlineData);
+      for (const roomData of offlineData) {
+        await saveToFirebase(roomData);
+      }
+      localStorage.removeItem("offlineRoomModifications");
+      console.log("Offline room modifications synchronized successfully.");
+    }
+  };
+
+  // Show success message
+  const showSuccessMessage = (message) => {
+    setShowAlert(true);
+    setTimeout(() => setShowAlert(false), 3000);
   };
 
   return (
@@ -114,7 +143,6 @@ const ModifyRoom = () => {
         )}
 
         <div className="w-full max-w-sm">
-          {/* Select Floor Number and Room Number */}
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700">Floor Number</label>
             <input
@@ -142,25 +170,13 @@ const ModifyRoom = () => {
             </button>
           </div>
 
-          {/* Modify Room Details */}
           {roomExists && (
             <>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700">Room Number</label>
-                <input
-                  type="number"
-                  value={inputValue1}
-                  className="w-full px-3 py-2 border rounded-lg shadow-sm focus:outline-none focus:border-blue-500"
-                  disabled
-                />
-              </div>
-
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700">Room Capacity</label>
                 <input
                   type="number"
                   min="1"
-                  step="1"
                   placeholder="Room Capacity"
                   value={inputValue2}
                   onChange={(e) => setInputValue2(e.target.value)}
@@ -168,7 +184,6 @@ const ModifyRoom = () => {
                 />
               </div>
 
-              {/* Display validation error */}
               {error && (
                 <div className="text-red-500 mb-4">{error}</div>
               )}

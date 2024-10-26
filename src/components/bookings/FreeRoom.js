@@ -1,16 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { app } from "../../firebase/firebase";
 import { getDatabase, ref, get, query, orderByChild, equalTo, update } from "firebase/database";
 import Navbar from '../home/Navbar';
 
 const FreeRoom = () => {
-  const [roomNo, setRoomNo] = useState(""); // Room number input
-  const [floorNo, setFloorNo] = useState(""); // Floor number input
-  const [error, setError] = useState(""); // Error handling
-  const [showAlert, setShowAlert] = useState(false); // Success alert
+  const [roomNo, setRoomNo] = useState("");
+  const [floorNo, setFloorNo] = useState("");
+  const [error, setError] = useState("");
+  const [showAlert, setShowAlert] = useState(false);
 
+  // Sync offline data once if online upon load
+  useEffect(() => {
+    if (navigator.onLine) syncOfflineData();
+
+    // Sync offline data when connection goes online
+    window.addEventListener("online", syncOfflineData);
+    return () => window.removeEventListener("online", syncOfflineData);
+  }, []);
+
+  // Function to free a room
   const freeRoom = async () => {
-    // Validate inputs
     const roomNumber = parseInt(roomNo, 10);
     const floorNumber = parseInt(floorNo, 10);
 
@@ -21,20 +30,14 @@ const FreeRoom = () => {
 
     try {
       const db = getDatabase(app);
-
-      // Reference to all rooms in the database
       const roomsRef = ref(db, 'FMS/Rooms');
-
-      // Query to search rooms by RoomNo
       const roomNoQuery = query(roomsRef, orderByChild('RoomNo'), equalTo(roomNumber));
       const snapshot = await get(roomNoQuery);
 
-      // Check if the room with the specified RoomNo exists
       if (snapshot.exists()) {
         const rooms = snapshot.val();
-
-        // Find the room with the matching FloorNo
         let roomKey = null;
+
         Object.keys(rooms).forEach((key) => {
           if (rooms[key].FloorNo === floorNumber) {
             roomKey = key;
@@ -43,25 +46,15 @@ const FreeRoom = () => {
 
         if (roomKey) {
           const room = rooms[roomKey];
-
-          // Check if the room is already free
           if (room.isOccupied === false) {
             setError("Room is already free.");
           } else {
-            // Room is occupied, proceed to free it
             const roomRef = ref(db, `FMS/Rooms/${roomKey}`);
-
-            // Update only the isOccupied property to false (freeing the room)
-            await update(roomRef, { isOccupied: false });
-
-            // Show success message
-            setShowAlert(true);
-            setTimeout(() => setShowAlert(false), 3000);
-
-            // Reset inputs
-            setRoomNo("");
-            setFloorNo("");
-            setError(""); // Clear any previous error
+            if (navigator.onLine) {
+              updateRoomStatusInFirebase(roomRef, roomKey);
+            } else {
+              saveToLocalStorage({ roomKey, roomNo: roomNumber, floorNo: floorNumber });
+            }
           }
         } else {
           setError("No room found with the specified RoomNo and FloorNo.");
@@ -71,8 +64,60 @@ const FreeRoom = () => {
       }
     } catch (error) {
       setError("Failed to free the room. Please try again.");
-      console.error("Error: ", error); // Log error for debugging
+      console.error("Error: ", error);
     }
+  };
+
+  // Update room status in Firebase
+  const updateRoomStatusInFirebase = async (roomRef, roomKey) => {
+    try {
+      await update(roomRef, { isOccupied: false });
+      console.log("Room status updated in Firebase:", roomKey);
+      showSuccessMessage("Room freed successfully!");
+
+      // Reset inputs
+      setRoomNo("");
+      setFloorNo("");
+      setError("");
+    } catch (error) {
+      console.error("Error updating Firebase:", error);
+      setError("Failed to update room status. Please try again.");
+    }
+  };
+
+  // Save request to local storage
+  const saveToLocalStorage = (roomData) => {
+    const offlineFreeRoomRequests = JSON.parse(localStorage.getItem("offlineFreeRoomRequests")) || [];
+    offlineFreeRoomRequests.push(roomData);
+    localStorage.setItem("offlineFreeRoomRequests", JSON.stringify(offlineFreeRoomRequests));
+    console.log("Room freeing request saved offline:", roomData);
+    showSuccessMessage("Request saved offline. It will sync when online.");
+  };
+
+  // Sync offline data with Firebase
+  const syncOfflineData = async () => {
+    const offlineFreeRoomRequests = JSON.parse(localStorage.getItem("offlineFreeRoomRequests"));
+    if (offlineFreeRoomRequests && offlineFreeRoomRequests.length > 0) {
+      console.log("Synchronizing offline room free requests:", offlineFreeRoomRequests);
+      const db = getDatabase(app);
+
+      for (const { roomKey } of offlineFreeRoomRequests) {
+        const roomRef = ref(db, `FMS/Rooms/${roomKey}`);
+        await update(roomRef, { isOccupied: false }).then(() => {
+          console.log("Offline room free request synced for:", roomKey);
+        }).catch((error) => {
+          console.error("Failed to sync room free request for:", roomKey, error);
+        });
+      }
+
+      localStorage.removeItem("offlineFreeRoomRequests");
+      console.log("Offline room free requests synchronized successfully.");
+    }
+  };
+
+  const showSuccessMessage = (message) => {
+    setShowAlert(true);
+    setTimeout(() => setShowAlert(false), 3000);
   };
 
   return (
@@ -88,8 +133,7 @@ const FreeRoom = () => {
         )}
 
         <div className="w-full max-w-sm">
-
-        <div className="mb-4">
+          <div className="mb-4">
             <input
               type="number"
               placeholder="Floor Number"
@@ -115,7 +159,6 @@ const FreeRoom = () => {
             Free Room
           </button>
 
-          {/* Display validation error */}
           {error && (
             <div className="text-red-500 mt-4">{error}</div>
           )}
@@ -126,4 +169,3 @@ const FreeRoom = () => {
 };
 
 export default FreeRoom;
-

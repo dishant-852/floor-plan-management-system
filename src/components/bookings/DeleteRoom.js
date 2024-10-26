@@ -1,78 +1,118 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { app } from "../../firebase/firebase";
 import { getDatabase, ref, get, query, equalTo, orderByChild, remove } from "firebase/database";
 import Navbar from '../home/Navbar';
 
 const DeleteRoom = () => {
-  const [floorNo, setFloorNo] = useState(""); // Floor number input
-  const [roomNumber, setRoomNumber] = useState(""); // Room number input
-  const [error, setError] = useState(""); // Validation errors
-  const [showAlert, setShowAlert] = useState(false); // Success alert
-  const [roomExists, setRoomExists] = useState(false); // Room existence state
+  const [floorNo, setFloorNo] = useState("");
+  const [roomNumber, setRoomNumber] = useState("");
+  const [error, setError] = useState("");
+  const [showAlert, setShowAlert] = useState(false);
+  const [roomExists, setRoomExists] = useState(false);
+
+  // Sync offline data once if online upon load
+  useEffect(() => {
+    if (navigator.onLine) syncOfflineData();
+
+    // Sync offline data when connection goes online
+    window.addEventListener("online", syncOfflineData);
+    return () => window.removeEventListener("online", syncOfflineData);
+  }, []);
 
   // Fetch room details based on entered floor number and room number to verify its existence
   const checkRoomExists = async (floorNo, roomNo) => {
-    setError(""); // Clear previous errors
+    setError("");
     const db = getDatabase(app);
-    const roomRef = query(ref(db, 'FMS/Rooms'), orderByChild('RoomNo'), equalTo(parseInt(roomNo, 10))); // Parse roomNo to integer
+    const roomRef = query(ref(db, 'FMS/Rooms'), orderByChild('RoomNo'), equalTo(parseInt(roomNo, 10)));
     const snapshot = await get(roomRef);
 
     if (snapshot.exists()) {
       const roomEntries = Object.entries(snapshot.val());
       for (const [roomKey, roomData] of roomEntries) {
         if (roomData.FloorNo === parseInt(floorNo, 10)) {
-          setRoomExists(true); // Room exists, proceed to delete
-          return { roomKey, roomData }; // Return room key and data for further use
+          setRoomExists(true);
+          return { roomKey, roomData };
         }
       }
       setError("Room does not exist on this floor.");
-      setRoomExists(false); // Room doesn't exist on this floor
+      setRoomExists(false);
       return null;
     } else {
       setError("Room does not exist.");
-      setRoomExists(false); // Room doesn't exist
+      setRoomExists(false);
       return null;
     }
   };
 
   const deleteRoomData = async () => {
-    // Validate if both floor number and room number have been entered
     if (floorNo.trim() === "" || roomNumber.trim() === "") {
       setError("Please enter valid floor and room numbers.");
       return;
     }
 
-    // Check if the room exists
     const roomDetails = await checkRoomExists(floorNo, roomNumber);
 
     if (roomDetails) {
       const { roomKey, roomData } = roomDetails;
 
-      // Check if the room is occupied
       if (roomData.isOccupied) {
         setError("Cannot delete a currently occupied room.");
-        return; // Stop execution if the room is occupied
+        return;
       }
 
       const db = getDatabase(app);
       const roomDocRef = ref(db, `FMS/Rooms/${roomKey}`);
 
-      // Remove the room
-      remove(roomDocRef)
-        .then(() => {
-          setShowAlert(true); // Show success alert
-          setTimeout(() => {
-            setShowAlert(false); // Hide alert after 3 seconds
-            setRoomNumber(""); // Clear input after deletion
-            setFloorNo(""); // Clear floor number input
-            setRoomExists(false); // Reset state
-          }, 3000);
-        })
-        .catch((error) => {
-          setError(`Error: ${error.message}`);
-        });
+      if (navigator.onLine) {
+        removeFromFirebase(roomDocRef, roomKey);
+      } else {
+        saveToLocalStorage({ roomKey, floorNo, roomNumber });
+      }
     }
+  };
+
+  const removeFromFirebase = async (roomDocRef, roomKey) => {
+    remove(roomDocRef)
+      .then(() => {
+        console.log("Room data removed from Firebase:", roomKey);
+        showSuccessMessage("Room removed successfully!");
+      })
+      .catch((error) => {
+        setError(`Error: ${error.message}`);
+      });
+  };
+
+  const saveToLocalStorage = (roomData) => {
+    const offlineDeletions = JSON.parse(localStorage.getItem("offlineRoomDeletions")) || [];
+    offlineDeletions.push(roomData);
+    localStorage.setItem("offlineRoomDeletions", JSON.stringify(offlineDeletions));
+    console.log("Room deletion saved to local storage:", roomData);
+    showSuccessMessage("Room deletion saved locally. It will sync when online.");
+  };
+
+  const syncOfflineData = async () => {
+    const offlineDeletions = JSON.parse(localStorage.getItem("offlineRoomDeletions"));
+    if (offlineDeletions && offlineDeletions.length > 0) {
+      console.log("Synchronizing offline room deletions:", offlineDeletions);
+      const db = getDatabase(app);
+
+      for (const { roomKey } of offlineDeletions) {
+        const roomDocRef = ref(db, `FMS/Rooms/${roomKey}`);
+        await remove(roomDocRef).then(() => {
+          console.log("Offline room deletion synced for:", roomKey);
+        }).catch((error) => {
+          console.error("Failed to sync room deletion for:", roomKey, error);
+        });
+      }
+
+      localStorage.removeItem("offlineRoomDeletions");
+      console.log("Offline room deletions synchronized successfully.");
+    }
+  };
+
+  const showSuccessMessage = (message) => {
+    setShowAlert(true);
+    setTimeout(() => setShowAlert(false), 3000);
   };
 
   return (
@@ -88,7 +128,6 @@ const DeleteRoom = () => {
         )}
 
         <div className="w-full max-w-sm">
-          {/* Input for Floor Number */}
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700">Floor Number</label>
             <input
@@ -100,7 +139,6 @@ const DeleteRoom = () => {
             />
           </div>
 
-          {/* Input for Room Number */}
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700">Room Number to Remove</label>
             <input
